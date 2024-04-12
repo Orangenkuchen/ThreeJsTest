@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { FirstPersonControls } from 'three/examples/jsm/controls/FirstPersonControls.js'
 import * as STATS from 'stats.js'
+import { FirstPersonControls } from './FirstPersonControls';
 
 /**
  * Hauptklasse von der Anwendung
@@ -28,6 +28,16 @@ class Main
      * Object for keeping track of time
      */
     private readonly clock: THREE.Clock;
+
+    /**
+     * The Overlay-HTML-Element over the canvas
+     */
+    private overlayElement: HTMLElement | null;
+
+    /**
+     * The Text being displayed in the canvas.
+     */
+    private overlayTextElement: HTMLParagraphElement | null;
 
     /**
      * Der pirmäre Renderer
@@ -70,6 +80,28 @@ class Main
 
         this.orbitControls = null;
         this.firstPersonControls = null;
+
+        this.overlayElement = null;
+        this.overlayTextElement = null;
+
+        document.addEventListener(
+            "pointerlockchange", 
+            (event: Event) =>
+            {
+                if (this.firstPersonControls && this.firstPersonControls.Enabled)
+                {
+                    if (document.pointerLockElement)
+                    {
+                        this.HideOverlay();
+                    }
+                    else
+                    {
+                        this.ShowOverlay("Klicken zum steuern...");
+                    }
+                }
+            }, 
+            false
+        );
     }
     // #endregion
 
@@ -83,6 +115,8 @@ class Main
 
         document.body.appendChild(this.stats.dom);
 
+        this.overlayElement = <HTMLElement>document.querySelector(".Overlay");
+        this.overlayTextElement = <HTMLParagraphElement>document.querySelector(".OverlayText");
         let mainCanvas = <HTMLCanvasElement>document.querySelector(".MainCanvas");
 
         console.debug("Renderer wird initialisieren...");
@@ -131,18 +165,32 @@ class Main
 
         console.debug("Füge FPS-Steuerung hinzu (deaktiviert)...");
         this.firstPersonControls = new FirstPersonControls(this.playerCamera, this.mainRenderer.domElement);
-        this.firstPersonControls.enabled = false;
-        this.firstPersonControls.lookSpeed = 0.1;
-        this.firstPersonControls.movementSpeed = 10;
+        this.firstPersonControls.Enabled = false;
+        this.firstPersonControls.LookSpeed = 5;
+        this.firstPersonControls.MovementSpeed = 10;
 
         window.addEventListener(
             "keydown",
             (event) => {
-                if (event.code == "Space")
+                if (event.code == "KeyQ")
                 {
                     console.debug("Leertaste wurde gedrückt. Wechsle die Sterungsart...");
-                    this.firstPersonControls!.enabled = this.firstPersonControls!.enabled == false;
+                    this.firstPersonControls!.Enabled = this.firstPersonControls!.Enabled == false;
                     this.orbitControls!.enabled = this.orbitControls!.enabled == false;
+
+                    if (this.firstPersonControls!.Enabled && document.pointerLockElement === null)
+                    {
+                        this.ShowOverlay("Klicken zum steuern...");
+                    }
+                    else
+                    {
+                        this.HideOverlay();
+                    }
+
+                    if (this.orbitControls!.enabled)
+                    {
+                        document.exitPointerLock();
+                    }
                 }
             }
         );
@@ -194,9 +242,9 @@ class Main
         {
             this.orbitControls?.update();
         }
-        if (this.firstPersonControls != null && this.firstPersonControls.enabled)
+        if (this.firstPersonControls != null && this.firstPersonControls.Enabled)
         {
-            this.firstPersonControls?.update(this.clock.getDelta());
+            this.firstPersonControls?.Update(this.clock.getDelta());
         }
 
         this.mainRenderer.render(this.mainScene, this.playerCamera);
@@ -223,6 +271,43 @@ class Main
         );
 
         this.mainScene.add(star);
+    }
+    // #endregion
+
+    // #region ShowOverlay
+    /**
+     * Displays the overlay with the specified Text
+     * 
+     * @param text The text to display
+     * @throws {Error} Will be thrown if {@link Load} was not called yet
+     */
+    private ShowOverlay(text: string): void
+    {
+        if (this.overlayElement == null || this.overlayTextElement == null)
+        {
+            throw new Error("Overlay-HTML-Element are null. Did you call Load()?");
+        }
+
+        this.overlayElement.classList.remove("Hide");
+        this.overlayTextElement.innerText = text;
+    }
+    // #endregion
+
+    // #region HideOverlay
+    /**
+     * Hides the Overlay
+     * 
+     * @throws {Error} Will be thrown if {@link Load} was not called yet
+     */
+    private HideOverlay(): void
+    {
+        if (this.overlayElement == null || this.overlayTextElement == null)
+        {
+            throw new Error("Overlay-HTML-Element are null. Did you call Load()?");
+        }
+
+        this.overlayElement.classList.add("Hide");
+        this.overlayTextElement.innerText = "";
     }
     // #endregion
 }
