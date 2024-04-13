@@ -1,6 +1,8 @@
 {
     "cSpell.words": [
-        "endregion"
+        "endregion",
+        "gamepadconnected",
+        "gamepaddisconnected"
     ],
     "cSpell.language": "en,de-DE"
 }

@@ -166,8 +166,9 @@ class Main
         console.debug("Füge FPS-Steuerung hinzu (deaktiviert)...");
         this.firstPersonControls = new FirstPersonControls(this.playerCamera, this.mainRenderer.domElement);
         this.firstPersonControls.Enabled = false;
-        this.firstPersonControls.LookSpeed = 5;
+        this.firstPersonControls.MouseLookSpeed = 5;
         this.firstPersonControls.MovementSpeed = 10;
+        this.firstPersonControls.ControllerLookSpeed = 50;
 
         window.addEventListener(
             "keydown",

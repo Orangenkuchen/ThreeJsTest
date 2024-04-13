@@ -2,6 +2,14 @@ import { MathUtils, Spherical, Vector3 } from 'three';
 import * as THREE from 'three';
 
 /**
+ * HashTable of gamepads
+ */
+interface GamePadHashTable
+{
+    [index: string]: Gamepad
+}
+
+/**
  * Provides First-Person-Contorls.
  */
 export class FirstPersonControls
@@ -34,6 +42,11 @@ export class FirstPersonControls
 
     private readonly spherical: Spherical;
 
+    /**
+     * HashTable of the connected gamepads
+     */
+    private readonly gamepadHashTable: GamePadHashTable;
+
     private ViewHalfX: number;
 
     private ViewHalfY: number;
@@ -43,44 +56,39 @@ export class FirstPersonControls
     private longitude: number;
 
     /**
-     * Indicates if the control to move forward is pressed.
+     * The amount the player is moved in the x axis in the next {@link Update}.
      */
-    private MoveForwardPressed: boolean;
+    private XMovement: number;
 
     /**
-     * Indicates if the control to move backwards is pressed.
+     * The amount the player is moved in the y axis in the next {@link Update}.
      */
-    private MoveBackwardPressed: boolean;
+    private YMovement: number;
 
     /**
-     * Indicates if the control to move left is pressed.
+     * The amount the player is moved in the z axis in the next {@link Update}.
      */
-    private MoveLeftPressed: boolean;
+    private ZMovement: number;
 
     /**
-     * Indicates if the control to move right is pressed.
+     * The amount the controller axis for looking in the x direction is.
      */
-    private MoveRightPressed: boolean;
+    private controllerXLook: number;
 
     /**
-     * Indicates if the control to move upwards is pressed.
+     * The amount the controller axis for looking in the y direction is.
      */
-    private MoveUpwardsPressed: boolean;
+    private controllerYLook: number;
 
     /**
-     * Indicates if the control to move downwards is pressed.
+     * The amount the mouse axis for looking in the x direction is.
      */
-    private MoveDownwardsPressed: boolean;
+    private mouseXLook: number;
 
     /**
-     * The x movement of the mouse since the last mouse movement event
+     * The amount the controller axis for looking in the y direction is.
      */
-    private MouseMovementX: number;
-
-    /**
-     * The y movement of the mouse since the last mouse movement event
-     */
-    private MouseMovementY: number;
+    private mouseYLook: number;
 
     private lookTargetPosition: Vector3;
     // #endregion
@@ -104,22 +112,25 @@ export class FirstPersonControls
         this.spherical = new Spherical();
         this.lookTargetPosition = new Vector3();
 
+        this.gamepadHashTable = {};
+
         this.Enabled = true;
         this.MovementSpeed = 1.0;
-        this.LookSpeed = 0.005;
+        this.MouseLookSpeed = 0.005;
+        this.ControllerLookSpeed = 1;
 
         this.ViewHalfX = 0;
         this.ViewHalfY = 0;
 
-        this.MoveForwardPressed = false;
-        this.MoveBackwardPressed = false;
-        this.MoveLeftPressed = false;
-        this.MoveRightPressed = false;
-        this.MoveUpwardsPressed = false;
-        this.MoveDownwardsPressed = false;
+        this.XMovement = 0;
+        this.YMovement = 0;
+        this.ZMovement = 0;
 
-        this.MouseMovementX = 0;
-        this.MouseMovementY = 0;
+        this.controllerXLook = 0;
+        this.controllerYLook = 0;
+
+        this.mouseXLook = 0;
+        this.mouseYLook = 0;
 
         this.longitude = 0;
         this.latitude = 0;
@@ -132,6 +143,7 @@ export class FirstPersonControls
         this.AutoSpeedFactor = 0.0;
 
         this.AutoForward = false;
+        this.UseController = true;
 
         this.ActiveLook = true;
         this.LookVertical = true;
@@ -164,6 +176,14 @@ export class FirstPersonControls
         window.addEventListener( 'keyup', keyboardKeyUpHandler);
         this.cleanUpActions.push(() => { window.removeEventListener( 'keyup', keyboardKeyUpHandler); });
 
+        let gamepadConnectedHandler = (event: GamepadEvent) => { this.HandleOnControllerConnected(event) };
+        window.addEventListener( 'gamepadconnected', gamepadConnectedHandler);
+        this.cleanUpActions.push(() => { window.removeEventListener( 'gamepadconnected', gamepadConnectedHandler); });
+
+        let gamepadDisconnectedHandler = (event: GamepadEvent) => { this.HandleOnControllerDisconnected(event) };
+        window.addEventListener( 'gamepaddisconnected', gamepadDisconnectedHandler);
+        this.cleanUpActions.push(() => { window.removeEventListener( 'gamepaddisconnected', gamepadDisconnectedHandler); });
+
         this.HandleResize();
         this.SetOrientation();
     }
@@ -183,11 +203,18 @@ export class FirstPersonControls
     public MovementSpeed: number;
     // #endregion
 
-    // #region LookSpeed
+    // #region MouseLookSpeed
     /**
      * The speed of looking around with the mouse.
      */
-    public LookSpeed: number;
+    public MouseLookSpeed: number;
+    // #endregion
+
+    // #region ControllerLookSpeed
+    /**
+     * The speed of looking around with the controller.
+     */
+    public ControllerLookSpeed: number;
     // #endregion
 
     public HeightSpeed: boolean;
@@ -212,6 +239,8 @@ export class FirstPersonControls
 
     public LookVertical: boolean;
 
+    public UseController: boolean;
+
     // #region Dispose
     /**
      * Cleans up the class
@@ -223,6 +252,147 @@ export class FirstPersonControls
             cleanUpAction();
         }
         this.cleanUpActions.length = 0;
+    }
+    // #endregion
+
+    // #region LookAt
+    /**
+     * Truns the camera to look at the target
+     * 
+     * @param vector The vector to look at
+     */
+    public LookAt(vector: THREE.Vector3): void;
+
+    /**
+     * Truns the camera to look at the target
+     * 
+     * @param x The x coordinate to look at
+     * @param y The y coordinate to look at
+     * @param z The z coordinate to look at
+     */
+    public LookAt(x: number, y: number, z: number): void;
+
+    public LookAt(xOrVector: THREE.Vector3 | number, yOrUndefined?: number, zOrUndefined?: number): void
+    {
+        if (xOrVector instanceof THREE.Vector3)
+        {
+            this.lookTarget.copy(xOrVector);
+        }
+        else
+        {
+            
+            this.lookTarget.set( xOrVector, <number>yOrUndefined, <number>zOrUndefined );
+        }
+
+        this.object.lookAt(this.lookTarget);
+
+        this.SetOrientation();
+    }
+    // #endregion
+
+    // #region Update
+    /**
+     * Updates the first person control for this game loop.
+     * 
+     * @param clockDelta The delta in milliseconds since the last game loop
+     */
+    public Update(clockDelta: number): void
+    {
+        if (this.Enabled === false)
+        {
+            return;
+        }
+
+        this.CheckAndProcessControllerInput();
+
+        if (this.HeightSpeed)
+        {
+            const y = MathUtils.clamp( this.object.position.y, this.HeightMin, this.HeightMax );
+            const heightDelta = y - this.HeightMin;
+
+            this.AutoSpeedFactor = clockDelta * ( heightDelta * this.HeightCoefficient );
+        }
+        else
+        {
+            this.AutoSpeedFactor = 0.0;
+        }
+
+        const actualMoveSpeed = clockDelta * this.MovementSpeed;
+
+        if (Math.abs(this.ZMovement) > 0  || this.AutoForward)
+        {            
+            this.object.translateZ((actualMoveSpeed + this.AutoSpeedFactor) * this.ZMovement);
+        }
+
+        if (Math.abs(this.XMovement) > 0)
+        {
+            this.object.translateX(actualMoveSpeed * this.XMovement);
+        }
+
+        if (Math.abs(this.YMovement) > 0)
+        {
+            this.object.translateY(actualMoveSpeed * this.YMovement);
+        }
+
+        let actualLookSpeed = clockDelta * this.MouseLookSpeed;
+
+        if (this.ActiveLook == false)
+        {
+            actualLookSpeed = 0;
+        }
+
+        let verticalLookRatio = 1;
+
+        if (this.ConstrainVertical)
+        {
+            verticalLookRatio = Math.PI / (this.VerticalMax - this.VerticalMin);
+        }
+
+        if (Math.abs(this.mouseXLook) > 0)
+        {
+            // Is subtracted, because the origin of the mouse is in the top-left corner.
+            // Therefor it needs to be inverted
+            this.longitude -= this.mouseXLook * actualLookSpeed;
+        }
+        if (Math.abs(this.controllerXLook) > 0)
+        {
+            this.longitude += this.controllerXLook * actualLookSpeed * this.ControllerLookSpeed;
+        }
+
+        if (this.LookVertical)
+        {
+            if (Math.abs(this.mouseYLook) > 0)
+            {
+                // Is subtracted, because the origin of the mouse is in the top-left corner.
+                // Therefor it needs to be inverted
+                this.latitude -= this.mouseYLook * actualLookSpeed * verticalLookRatio;
+            }
+            if (Math.abs(this.controllerYLook) > 0)
+            {
+                this.latitude += this.controllerYLook * actualLookSpeed * verticalLookRatio * this.ControllerLookSpeed;
+            }
+        }
+
+        this.latitude = Math.max(-85, Math.min(85, this.latitude) );
+
+        let phi = MathUtils.degToRad(90 - this.latitude);
+        const theta = MathUtils.degToRad(this.longitude);
+
+        if (this.ConstrainVertical)
+        {
+            phi = MathUtils.mapLinear(phi, 0, Math.PI, this.VerticalMin, this.VerticalMax);
+        }
+
+        const position = this.object.position;
+
+        this.lookTargetPosition.setFromSphericalCoords( 1, phi, theta ).add( position );
+
+        this.object.lookAt(this.lookTargetPosition);
+        
+        // Reset the mouse movement since it was processed.
+        // Needs to be done because the mouse move event does not return movement 0, 0
+        this.mouseXLook = 0;
+        this.mouseYLook = 0;
     }
     // #endregion
 
@@ -279,8 +449,8 @@ export class FirstPersonControls
      */
     private HandleOnMouseMove(event: MouseEvent): void
     {
-        this.MouseMovementX = event.movementX;
-        this.MouseMovementY = event.movementY;
+        this.mouseXLook = event.movementX;
+        this.mouseYLook = event.movementY;
     }
     // #endregion
 
@@ -296,30 +466,30 @@ export class FirstPersonControls
         {
             case 'ArrowUp':
             case 'KeyW': 
-                this.MoveForwardPressed = true; 
+                this.ZMovement = -1.0; 
                 break;
 
             case 'ArrowLeft':
             case 'KeyA':
-                this.MoveLeftPressed = true;
+                this.XMovement = -1.0;
                 break;
 
             case 'ArrowDown':
             case 'KeyS':
-                this.MoveBackwardPressed = true;
+                this.ZMovement = 1.0;
                 break;
 
             case 'ArrowRight':
             case 'KeyD':
-                this.MoveRightPressed = true;
+                this.XMovement = 1.0;
                 break;
 
             case 'ShiftLeft':
-                this.MoveDownwardsPressed = true;
+                this.YMovement = -1.0;
                 break;
 
             case 'Space':
-                this.MoveUpwardsPressed = true;
+                this.YMovement = 1.0;
                 break;
 
         }
@@ -337,69 +507,136 @@ export class FirstPersonControls
         switch ( event.code )
         {
             case 'ArrowUp':
-            case 'KeyW': 
-                this.MoveForwardPressed = false; 
+            case 'KeyW':
+                this.ZMovement = 0;
                 break;
 
             case 'ArrowLeft':
             case 'KeyA':
-                this.MoveLeftPressed = false;
+                this.XMovement = 0;
                 break;
 
             case 'ArrowDown':
             case 'KeyS':
-                this.MoveBackwardPressed = false;
+                this.ZMovement = 0;
                 break;
 
             case 'ArrowRight':
             case 'KeyD':
-                this.MoveRightPressed = false;
+                this.XMovement = 0;
                 break;
 
             case 'ShiftLeft':
-                this.MoveDownwardsPressed = false;
+                this.YMovement = 0;
                 break;
 
             case 'Space':
-                this.MoveUpwardsPressed = false;
+                this.YMovement = 0;
                 break;
 
         }
     }
     // #endregion
 
-    // #region LookAt
+    // #region HandleOnControllerConnected
     /**
-     * Truns the camera to look at the target
+     * Is called when a controller is connected
      * 
-     * @param vector The vector to look at
+     * @param gamepadEvent The event args
      */
-    public LookAt(vector: THREE.Vector3): void;
-
-    /**
-     * Truns the camera to look at the target
-     * 
-     * @param x The x coordinate to look at
-     * @param y The y coordinate to look at
-     * @param z The z coordinate to look at
-     */
-    public LookAt(x: number, y: number, z: number): void;
-
-    public LookAt(xOrVector: THREE.Vector3 | number, yOrUndefined?: number, zOrUndefined?: number): void
+    public HandleOnControllerConnected(gamepadEvent: GamepadEvent): void
     {
-        if (xOrVector instanceof THREE.Vector3)
+        console.debug(
+            "Gamepad connected at index %d: %s. %d buttons, %d axes.",
+            gamepadEvent.gamepad.index,
+            gamepadEvent.gamepad.id,
+            gamepadEvent.gamepad.buttons.length,
+            gamepadEvent.gamepad.axes.length
+        );
+
+        this.gamepadHashTable[gamepadEvent.gamepad.index] = gamepadEvent.gamepad;
+    }
+    // #endregion
+
+    // #region HandleOnControllerDisconnected
+    /**
+     * Is called when a controller is disconnected
+     * 
+     * @param gamepadEvent The event args
+     */
+    public HandleOnControllerDisconnected(gamepadEvent: GamepadEvent): void
+    {
+        console.log(
+            "Gamepad disconnected from index %d: %s",
+            gamepadEvent.gamepad.index,
+            gamepadEvent.gamepad.id,
+        );
+
+        delete this.gamepadHashTable[gamepadEvent.gamepad.index];
+    }
+    // #endregion
+
+    // #region CheckAndProcessControllerInput
+    /**
+     * Checks if an input on a controller has changed and
+     * processes it
+     */
+    public CheckAndProcessControllerInput(): void
+    {
+        const axisDeadZone = 0.05;
+        let firstGamepad: Gamepad | null = null;
+
+        for (let index in this.gamepadHashTable)
         {
-            this.lookTarget.copy(xOrVector);
-        }
-        else
-        {
-            
-            this.lookTarget.set( xOrVector, <number>yOrUndefined, <number>zOrUndefined );
+            firstGamepad = this.gamepadHashTable[index];
+            break;
         }
 
-        this.object.lookAt(this.lookTarget);
+        if (firstGamepad != null)
+        {
+            let moveXAmount = firstGamepad.axes[0];
+            let moveZAmount = firstGamepad.axes[1];
+            let moveYAmount = 0;
+            let lookXAmount = firstGamepad.axes[3];
+            let lookYAmount = firstGamepad.axes[4];
 
-        this.SetOrientation();
+            if (Math.abs(moveXAmount) < axisDeadZone)
+            {
+                moveXAmount = 0;
+            }
+
+            if (Math.abs(moveZAmount) < axisDeadZone)
+            {
+                moveZAmount = 0;
+            }
+
+            if (firstGamepad.buttons[11].pressed)
+            {
+                moveYAmount += -1;
+            }
+
+            if (firstGamepad.buttons[0].pressed)
+            {
+                moveYAmount += 1;
+            }
+
+            if (Math.abs(lookXAmount) < axisDeadZone)
+            {
+                lookXAmount = 0;
+            }
+
+            if (Math.abs(lookYAmount) < axisDeadZone)
+            {
+                lookYAmount = 0;
+            }
+
+            this.XMovement = moveXAmount;
+            this.YMovement = moveYAmount;
+            this.ZMovement = moveZAmount;
+
+            this.controllerXLook = lookXAmount * -1;
+            this.controllerYLook = lookYAmount * -1;
+        }
     }
     // #endregion
 
@@ -413,107 +650,6 @@ export class FirstPersonControls
         this.latitude = 90 - MathUtils.radToDeg( this.spherical.phi );
         this.longitude = MathUtils.radToDeg( this.spherical.theta );
     }
-
-    // #region Update
-    /**
-     * Updates the first person control for this game loop.
-     * 
-     * @param clockDelta The delta in milliseconds since the last game loop
-     */
-    public Update(clockDelta: number): void
-    {
-        if (this.Enabled === false)
-        {
-            return;
-        }
-
-        if (this.HeightSpeed)
-        {
-            const y = MathUtils.clamp( this.object.position.y, this.HeightMin, this.HeightMax );
-            const heightDelta = y - this.HeightMin;
-
-            this.AutoSpeedFactor = clockDelta * ( heightDelta * this.HeightCoefficient );
-
-        }
-        else
-        {
-            this.AutoSpeedFactor = 0.0;
-        }
-
-        const actualMoveSpeed = clockDelta * this.MovementSpeed;
-
-        if (this.MoveForwardPressed || (this.AutoForward && this.MoveBackwardPressed == false ))
-        {
-            this.object.translateZ(-(actualMoveSpeed + this.AutoSpeedFactor));
-        }
-
-        if (this.MoveBackwardPressed)
-        {
-            this.object.translateZ(actualMoveSpeed);
-        }
-
-        if (this.MoveLeftPressed)
-        {
-            this.object.translateX(-actualMoveSpeed);
-        }
-
-        if (this.MoveRightPressed)
-        {
-            this.object.translateX(actualMoveSpeed);
-        }
-
-        if (this.MoveUpwardsPressed)
-        {
-            this.object.translateY(actualMoveSpeed);
-        }
-
-        if (this.MoveDownwardsPressed) 
-        {
-            this.object.translateY(-actualMoveSpeed);
-        }
-
-        let actualLookSpeed = clockDelta * this.LookSpeed;
-
-        if (this.ActiveLook == false)
-        {
-            actualLookSpeed = 0;
-        }
-
-        let verticalLookRatio = 1;
-
-        if (this.ConstrainVertical)
-        {
-            verticalLookRatio = Math.PI / (this.VerticalMax - this.VerticalMin);
-        }
-
-        this.longitude -= this.MouseMovementX * actualLookSpeed;
-        if ( this.LookVertical )
-        {
-            this.latitude -= this.MouseMovementY * actualLookSpeed * verticalLookRatio;
-        }
-
-        this.latitude = Math.max(-85, Math.min(85, this.latitude) );
-
-        let phi = MathUtils.degToRad(90 - this.latitude);
-        const theta = MathUtils.degToRad(this.longitude);
-
-        if (this.ConstrainVertical)
-        {
-            phi = MathUtils.mapLinear(phi, 0, Math.PI, this.VerticalMin, this.VerticalMax);
-        }
-
-        const position = this.object.position;
-
-        this.lookTargetPosition.setFromSphericalCoords( 1, phi, theta ).add( position );
-
-        this.object.lookAt(this.lookTargetPosition);
-        
-        // Reset the mouse movement since it was processed.
-        // Needs to be done because the mouse move event does not return movement 0, 0
-        this.MouseMovementX = 0;
-        this.MouseMovementY = 0;
-    }
-    // #endregion
 
     // #region HandleOnContextMenu
     /**
