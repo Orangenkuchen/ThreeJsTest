@@ -71,8 +71,16 @@ class Main
         this.playerCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
 
         this.mainRenderer = new THREE.WebGLRenderer();
-        this.stats = new STATS();
-        this.stats.showPanel(0);
+
+        try
+        {
+            this.stats = new STATS();
+            this.stats.showPanel(0);
+        }
+        catch(error)
+        {
+            console.error("Error displaying Stats-Panel: %o", error);
+        }
 
         this.clock = new THREE.Clock(true);
 
