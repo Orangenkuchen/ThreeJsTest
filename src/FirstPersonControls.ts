@@ -1,3 +1,4 @@
+import CubicBezier from '@thednp/bezier-easing';
 import { MathUtils, Spherical, Vector3 } from 'three';
 import * as THREE from 'three';
 
@@ -46,6 +47,11 @@ export class FirstPersonControls
      * HashTable of the connected gamepads
      */
     private readonly gamepadHashTable: GamePadHashTable;
+
+    /**
+     * A function to ease the controller input by a cubic bezier function
+     */
+    private readonly controllerLookSpeedCubicBezier: (progressInPercent: number) => number;
 
     private ViewHalfX: number;
 
@@ -111,6 +117,8 @@ export class FirstPersonControls
         this.lookTarget = new Vector3();
         this.spherical = new Spherical();
         this.lookTargetPosition = new Vector3();
+
+        this.controllerLookSpeedCubicBezier = <(progressInPercent: number) => number><unknown>new CubicBezier(0.33,0,1,0.66);
 
         this.gamepadHashTable = {};
 
@@ -634,9 +642,32 @@ export class FirstPersonControls
             this.YMovement = moveYAmount;
             this.ZMovement = moveZAmount;
 
+            lookXAmount = this.ScaleControllerLookAxis(lookXAmount);
+            lookYAmount = this.ScaleControllerLookAxis(lookYAmount);
+
             this.controllerXLook = lookXAmount * -1;
             this.controllerYLook = lookYAmount * -1;
         }
+    }
+    // #endregion
+
+    // #region ScaleControllerLookAxis
+    /**
+     * Scales the look axis value of a controller
+     * 
+     * @param value The value to scale
+     * @returns The scaled value
+     */
+    private ScaleControllerLookAxis(value: number): number
+    {
+        let scaledValue = this.controllerLookSpeedCubicBezier(Math.abs(value));
+
+        if (value < 0)
+        {
+            scaledValue *= -1;
+        }
+
+        return scaledValue;
     }
     // #endregion
 

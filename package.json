@@ -11,6 +11,7 @@
     "vite": "^2.3.0"
   },
   "dependencies": {
+    "@thednp/bezier-easing": "^1.0.5",
     "stats.js": "^0.17.0",
     "three": "^0.128.0"
   }
