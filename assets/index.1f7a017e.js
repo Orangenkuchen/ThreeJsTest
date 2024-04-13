@@ -312,8 +312,12 @@ class Main {
     this.mainScene = new Scene();
     this.playerCamera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2e3);
     this.mainRenderer = new WebGLRenderer();
-    this.stats = new STATS();
-    this.stats.showPanel(0);
+    try {
+      this.stats = new STATS();
+      this.stats.showPanel(0);
+    } catch (error) {
+      console.error("Error displaying Stats-Panel: %o", error);
+    }
     this.clock = new Clock(true);
     this.torus = null;
     this.orbitControls = null;
@@ -453,4 +457,4 @@ let main = new Main();
 setTimeout(() => {
   main.Load();
 }, 0);
-//# sourceMappingURL=index.564dc1fa.js.map
+//# sourceMappingURL=index.1f7a017e.js.map
