@@ -309,6 +309,7 @@ class FirstPersonControls {
 }
 class Main {
   constructor() {
+    this.stats = null;
     this.mainScene = new Scene();
     this.playerCamera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2e3);
     this.mainRenderer = new WebGLRenderer();
@@ -336,7 +337,9 @@ class Main {
   }
   Load() {
     console.info("Main.Load wurde aufgerufen...");
-    document.body.appendChild(this.stats.dom);
+    if (this.stats != null) {
+      document.body.appendChild(this.stats.dom);
+    }
     this.overlayElement = document.querySelector(".Overlay");
     this.overlayTextElement = document.querySelector(".OverlayText");
     let mainCanvas = document.querySelector(".MainCanvas");
@@ -412,21 +415,21 @@ class Main {
     this.GameLoop();
   }
   GameLoop() {
-    var _a, _b;
-    this.stats.begin();
+    var _a, _b, _c, _d;
+    (_a = this.stats) == null ? void 0 : _a.begin();
     if (this.torus != null) {
       this.torus.rotation.x += 0.01;
       this.torus.rotation.y += 5e-3;
       this.torus.rotation.z += 0.01;
     }
     if (this.orbitControls != null && this.orbitControls.enabled) {
-      (_a = this.orbitControls) == null ? void 0 : _a.update();
+      (_b = this.orbitControls) == null ? void 0 : _b.update();
     }
     if (this.firstPersonControls != null && this.firstPersonControls.Enabled) {
-      (_b = this.firstPersonControls) == null ? void 0 : _b.Update(this.clock.getDelta());
+      (_c = this.firstPersonControls) == null ? void 0 : _c.Update(this.clock.getDelta());
     }
     this.mainRenderer.render(this.mainScene, this.playerCamera);
-    this.stats.end();
+    (_d = this.stats) == null ? void 0 : _d.end();
     requestAnimationFrame(() => {
       this.GameLoop();
     });
@@ -457,4 +460,4 @@ let main = new Main();
 setTimeout(() => {
   main.Load();
 }, 0);
-//# sourceMappingURL=index.1f7a017e.js.map
+//# sourceMappingURL=index.9ed48f8b.js.map
