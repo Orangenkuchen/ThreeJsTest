@@ -22,7 +22,7 @@ class Main
     /**
      * Statistiken über das Rendern
      */
-    private readonly stats: STATS;
+    private readonly stats: STATS | null;
 
     /**
      * Object for keeping track of time
@@ -66,6 +66,8 @@ class Main
      */
     public constructor()
     {
+        this.stats = null;
+
         this.mainScene = new THREE.Scene();
 
         this.playerCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
@@ -121,7 +123,10 @@ class Main
     {
         console.info("Main.Load wurde aufgerufen...");
 
-        document.body.appendChild(this.stats.dom);
+        if (this.stats != null)
+        {
+            document.body.appendChild(this.stats.dom);
+        }
 
         this.overlayElement = <HTMLElement>document.querySelector(".Overlay");
         this.overlayTextElement = <HTMLParagraphElement>document.querySelector(".OverlayText");
@@ -239,7 +244,7 @@ class Main
      */
     private GameLoop()
     {
-        this.stats.begin();
+        this.stats?.begin();
         if (this.torus != null)
         {
             this.torus.rotation.x += 0.01;
@@ -257,7 +262,7 @@ class Main
         }
 
         this.mainRenderer.render(this.mainScene, this.playerCamera);
-        this.stats.end();
+        this.stats?.end();
     
         requestAnimationFrame(() => { this.GameLoop(); })
     }
