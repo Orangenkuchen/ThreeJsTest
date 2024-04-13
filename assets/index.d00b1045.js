@@ -401,10 +401,10 @@ class Main {
     for (let i = 0; i < 200; i++) {
       this.AddStar();
     }
-    let spaceTexture = new TextureLoader().load("space.jpg");
+    let spaceTexture = new TextureLoader().load(document.location + "/space.jpg");
     this.mainScene.background = spaceTexture;
-    let moonTexture = new TextureLoader().load("moon.jpg");
-    let moonNormalTexture = new TextureLoader().load("normal.jpg");
+    let moonTexture = new TextureLoader().load(document.location + "/moon.jpg");
+    let moonNormalTexture = new TextureLoader().load(document.location + "/normal.jpg");
     console.debug("F\xFCge einen Sph\xE4re mit Mond-Textur und -Noramltextur in der mitte der Szene hinzu...");
     let moon = new Mesh(new SphereGeometry(3, 32, 32), new MeshStandardMaterial({
       map: moonTexture,
@@ -460,4 +460,4 @@ let main = new Main();
 setTimeout(() => {
   main.Load();
 }, 0);
-//# sourceMappingURL=index.9ed48f8b.js.map
+//# sourceMappingURL=index.d00b1045.js.map
