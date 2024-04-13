@@ -215,11 +215,11 @@ class Main
             this.AddStar();   
         }
 
-        let spaceTexture = new THREE.TextureLoader().load("space.jpg");
+        let spaceTexture = new THREE.TextureLoader().load(document.location + "/space.jpg");
         this.mainScene.background = spaceTexture;
 
-        let moonTexture = new THREE.TextureLoader().load("moon.jpg");
-        let moonNormalTexture = new THREE.TextureLoader().load("normal.jpg");
+        let moonTexture = new THREE.TextureLoader().load(document.location + "/moon.jpg");
+        let moonNormalTexture = new THREE.TextureLoader().load(document.location + "/normal.jpg");
 
         console.debug("Füge einen Sphäre mit Mond-Textur und -Noramltextur in der mitte der Szene hinzu...");
         let moon = new THREE.Mesh(
