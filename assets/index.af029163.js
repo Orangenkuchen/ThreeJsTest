@@ -1,4 +1,4 @@
-import {V as Vector3, S as Spherical, f, M as MathUtils, a as Scene, P as PerspectiveCamera, W as WebGLRenderer, b as STATS, C as Clock, T as TorusGeometry, c as MeshStandardMaterial, d as Mesh, e as PointLight, A as AmbientLight, g as PointLightHelper, G as GridHelper, O as OrbitControls, h as TextureLoader, i as SphereGeometry} from "./vendor.59a31a26.js";
+import {V as Vector3, S as Spherical, f, M as MathUtils, a as Scene, P as PerspectiveCamera, W as WebGLRenderer, b as STATS, C as Clock, T as TorusGeometry, c as MeshStandardMaterial, d as Mesh, e as PointLight, A as AmbientLight, g as PointLightHelper, G as GridHelper, O as OrbitControls, h as TextureLoader, i as SphereGeometry, j as GLTFLoader, Q as Quaternion} from "./vendor.91c31a58.js";
 var style = "canvas {\n  position: fixed;\n  top: 0;\n  left: 0;\n}\n\n.Overlay {\n  position: absolute;\n  top: 0;\n  left: 0;\n  right: 0;\n  bottom: 0;\n\n  pointer-events: none;\n\n  display: flex;\n  flex-direction: column;\n\n  background-color: #000000F0;\n}\n\n.Overlay > .OverlayText {\n  margin: auto;\n\n  font-size: 40px;\n  color: white;\n}\n\n.Hide {\n  display: none;\n}";
 class FirstPersonControls {
   constructor(object, domElement) {
@@ -325,6 +325,16 @@ class Main {
     this.firstPersonControls = null;
     this.overlayElement = null;
     this.overlayTextElement = null;
+    this.robotBones = null;
+    this.robotControl = {
+      Axis1: 0,
+      Axis2: 0,
+      Axis3: 0,
+      Axis4: 0,
+      Axis5: 0,
+      Axis6: 0
+    };
+    this.BindRobotAxisKeys();
     document.addEventListener("pointerlockchange", (event) => {
       if (this.firstPersonControls && this.firstPersonControls.Enabled) {
         if (document.pointerLockElement) {
@@ -410,7 +420,23 @@ class Main {
       map: moonTexture,
       normalMap: moonNormalTexture
     }));
+    moon.position.y = 20;
     this.mainScene.add(moon);
+    const loader = new GLTFLoader();
+    let scene = this.mainScene;
+    loader.load(document.location + "/Roboter.glb", (gltf) => {
+      scene.add(gltf.scene);
+      this.robotBones = {
+        Base: scene.getObjectByName("base"),
+        Arm1: scene.getObjectByName("arm1"),
+        Arm2: scene.getObjectByName("arm2"),
+        Arm3: scene.getObjectByName("arm3"),
+        Arm4: scene.getObjectByName("arm4"),
+        Arm5: scene.getObjectByName("arm5")
+      };
+    }, void 0, function(error) {
+      console.error(error);
+    });
     console.debug("Starte die Gameloop...");
     this.GameLoop();
   }
@@ -428,6 +454,7 @@ class Main {
     if (this.firstPersonControls != null && this.firstPersonControls.Enabled) {
       (_c = this.firstPersonControls) == null ? void 0 : _c.Update(this.clock.getDelta());
     }
+    this.ApplyRobotControl();
     this.mainRenderer.render(this.mainScene, this.playerCamera);
     (_d = this.stats) == null ? void 0 : _d.end();
     requestAnimationFrame(() => {
@@ -455,9 +482,96 @@ class Main {
     this.overlayElement.classList.add("Hide");
     this.overlayTextElement.innerText = "";
   }
+  BindRobotAxisKeys() {
+    document.addEventListener("keydown", (event) => {
+      this.HandleOnKeyDown(event);
+    });
+    document.addEventListener("keyup", (event) => {
+      this.HandleOnKeyUp(event);
+    });
+  }
+  HandleOnKeyDown(event) {
+    switch (event.code) {
+      case "KeyT":
+        this.robotControl.Axis1 = 1;
+        break;
+      case "KeyG":
+        this.robotControl.Axis1 = -1;
+        break;
+      case "KeyY":
+        this.robotControl.Axis2 = 1;
+        break;
+      case "KeyH":
+        this.robotControl.Axis2 = -1;
+        break;
+      case "KeyU":
+        this.robotControl.Axis3 = 1;
+        break;
+      case "KeyJ":
+        this.robotControl.Axis3 = -1;
+        break;
+      case "KeyI":
+        this.robotControl.Axis4 = 1;
+        break;
+      case "KeyK":
+        this.robotControl.Axis4 = -1;
+        break;
+      case "KeyO":
+        this.robotControl.Axis5 = 1;
+        break;
+      case "KeyL":
+        this.robotControl.Axis5 = -1;
+        break;
+      case "KeyP":
+        this.robotControl.Axis6 = 1;
+        break;
+      case "Semicolon":
+        this.robotControl.Axis6 = -1;
+        break;
+    }
+  }
+  HandleOnKeyUp(event) {
+    switch (event.code) {
+      case "KeyT":
+      case "KeyG":
+        this.robotControl.Axis1 = 0;
+        break;
+      case "KeyY":
+      case "KeyH":
+        this.robotControl.Axis2 = 0;
+        break;
+      case "KeyU":
+      case "KeyJ":
+        this.robotControl.Axis3 = 0;
+        break;
+      case "KeyI":
+      case "KeyK":
+        this.robotControl.Axis4 = 0;
+        break;
+      case "KeyO":
+      case "KeyL":
+        this.robotControl.Axis5 = 0;
+        break;
+      case "KeyP":
+      case "Semicolon":
+        this.robotControl.Axis6 = 0;
+        break;
+    }
+  }
+  ApplyRobotControl() {
+    const multiplier = 0.01;
+    if (this.robotBones != null) {
+      this.robotBones.Base.applyQuaternion(new Quaternion(0, 0, this.robotControl.Axis1 * multiplier));
+      this.robotBones.Arm1.applyQuaternion(new Quaternion(this.robotControl.Axis2 * multiplier, 0, 0));
+      this.robotBones.Arm2.applyQuaternion(new Quaternion(0, 0, this.robotControl.Axis3 * multiplier));
+      this.robotBones.Arm3.applyQuaternion(new Quaternion(0, this.robotControl.Axis4 * multiplier, 0));
+      this.robotBones.Arm4.applyQuaternion(new Quaternion(0, 0, this.robotControl.Axis5 * multiplier));
+      this.robotBones.Arm5.applyQuaternion(new Quaternion(0, this.robotControl.Axis6 * multiplier, 0));
+    }
+  }
 }
 let main = new Main();
 setTimeout(() => {
   main.Load();
 }, 0);
-//# sourceMappingURL=index.d00b1045.js.map
+//# sourceMappingURL=index.af029163.js.map
