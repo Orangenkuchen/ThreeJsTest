@@ -2,6 +2,79 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import * as STATS from 'stats.js'
 import { FirstPersonControls } from './FirstPersonControls';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
+/**
+ * Controls the animation rig bones of the robot.
+ */
+interface RobotBones
+{
+    /**
+     * Rig bone for axis 1 (base of the robot; yaw)
+     */
+    Base: THREE.Bone;
+
+    /**
+     * Rig bone for axis 2 (first arm of the robot; pitch)
+     */
+    Arm1: THREE.Bone;
+
+    /**
+     * Rig bone for axis 3 (second arm of the robot; pitch)
+     */
+    Arm2: THREE.Bone;
+
+    /**
+     * Rig bone for axis 4 (second arm of the robot; rolling)
+     */
+    Arm3: THREE.Bone;
+
+    /**
+     * Rig bone for axis 5 (third arm of the robot; pitch)
+     */
+    Arm4: THREE.Bone;
+
+    /**
+     * Rig bone for axis 6 (third arm of the robot; rolling)
+     */
+    Arm5: THREE.Bone;
+}
+
+/**
+ * Klasse für die Steuerung vom Roboter
+ */
+interface RobotControls
+{
+    /**
+     * Steuern der ersten Achse (basis vom Roboter drehen)
+     */
+    Axis1: number;
+
+    /**
+     * Steuerung der zweiten Achse (erster Arm vertikal)
+     */
+    Axis2: number;
+
+    /**
+     * Steuerung der dritten Achse (zweiter Arm vertikal)
+     */
+    Axis3: number;
+
+    /**
+     * Steuerung der vierten Achse (zweiter Arm drehen)
+     */
+    Axis4: number;
+
+    /**
+     * Steuerung der fünften Achse (dritten Arm vertikal)
+     */
+    Axis5: number;
+
+    /**
+     * Steuerung der sechsten Achse (dritten Arm drehen)
+     */
+    Axis6: number;
+}
 
 /**
  * Hauptklasse von der Anwendung
@@ -28,6 +101,16 @@ class Main
      * Object for keeping track of time
      */
     private readonly clock: THREE.Clock;
+
+    /**
+     * Object for keeping track of the control that will be applied to the axis of the robot
+     */
+    private readonly robotControl: RobotControls;
+
+    /**
+     * Holds the animation rig bones of the robot.
+     */
+    private robotBones: RobotBones | null;
 
     /**
      * The Overlay-HTML-Element over the canvas
@@ -93,6 +176,19 @@ class Main
 
         this.overlayElement = null;
         this.overlayTextElement = null;
+
+        this.robotBones = null;
+
+        this.robotControl = {
+            Axis1: 0,
+            Axis2: 0,
+            Axis3: 0,
+            Axis4: 0,
+            Axis5: 0,
+            Axis6: 0
+        };
+        
+        this.BindRobotAxisKeys();
 
         document.addEventListener(
             "pointerlockchange", 
@@ -231,7 +327,31 @@ class Main
                 }
             )
         );
+        moon.position.y = 20;
         this.mainScene.add(moon);
+
+        const loader = new GLTFLoader();
+
+        let scene = this.mainScene;
+
+        loader.load(document.location + "/Roboter.glb", ( gltf ) => {
+
+            scene.add( gltf.scene );
+
+            this.robotBones = {
+                Base: <THREE.Bone<THREE.Object3DEventMap>>scene.getObjectByName("base"),
+                Arm1: <THREE.Bone<THREE.Object3DEventMap>>scene.getObjectByName("arm1"),
+                Arm2: <THREE.Bone<THREE.Object3DEventMap>>scene.getObjectByName("arm2"),
+                Arm3: <THREE.Bone<THREE.Object3DEventMap>>scene.getObjectByName("arm3"),
+                Arm4: <THREE.Bone<THREE.Object3DEventMap>>scene.getObjectByName("arm4"),
+                Arm5: <THREE.Bone<THREE.Object3DEventMap>>scene.getObjectByName("arm5")
+            };
+
+        }, undefined, function ( error ) {
+
+            console.error( error );
+
+        } );
 
         console.debug("Starte die Gameloop...");
         this.GameLoop();
@@ -260,6 +380,8 @@ class Main
         {
             this.firstPersonControls?.Update(this.clock.getDelta());
         }
+
+        this.ApplyRobotControl();
 
         this.mainRenderer.render(this.mainScene, this.playerCamera);
         this.stats?.end();
@@ -322,6 +444,183 @@ class Main
 
         this.overlayElement.classList.add("Hide");
         this.overlayTextElement.innerText = "";
+    }
+    // #endregion
+
+    // #region BindRobotAxisKeys
+    /**
+     * Binds the Keyboard-Keys for the manipulation of the robot model.
+     */
+    private BindRobotAxisKeys(): void
+    {
+        document.addEventListener("keydown", (event) => { this.HandleOnKeyDown(event); });
+        document.addEventListener("keyup", (event) => { this.HandleOnKeyUp(event); });
+    }
+    // #endregion
+
+    // #region HandleOnKeyDown
+    /**
+     * Is called when a key the keyboard is pressed down
+     * 
+     * @param event The event args
+     */
+    private HandleOnKeyDown(event: KeyboardEvent): void
+    {
+        switch ( event.code )
+        {
+            case 'KeyT': 
+                this.robotControl.Axis1 = 1.0; 
+                break;
+
+            case 'KeyG': 
+                this.robotControl.Axis1 = -1.0; 
+                break;
+
+            case 'KeyY': 
+                this.robotControl.Axis2 = 1.0; 
+                break;
+
+            case 'KeyH': 
+                this.robotControl.Axis2 = -1.0; 
+                break;
+
+            case 'KeyU': 
+                this.robotControl.Axis3 = 1.0; 
+                break;
+
+            case 'KeyJ': 
+                this.robotControl.Axis3 = -1.0; 
+                break;
+
+            case 'KeyI': 
+                this.robotControl.Axis4 = 1.0; 
+                break;
+
+            case 'KeyK': 
+                this.robotControl.Axis4 = -1.0; 
+                break;
+
+            case 'KeyO': 
+                this.robotControl.Axis5 = 1.0; 
+                break;
+
+            case 'KeyL': 
+                this.robotControl.Axis5 = -1.0; 
+                break;
+
+            case 'KeyP': 
+                this.robotControl.Axis6 = 1.0; 
+                break;
+
+            case 'Semicolon': 
+                this.robotControl.Axis6 = -1.0; 
+                break;
+        }
+    }
+    // #endregion
+
+    // #region HandleOnKeyUp
+    /**
+     * Is called when a key the keyboard is released
+     * 
+     * @param event The event args
+     */
+    private HandleOnKeyUp(event: KeyboardEvent): void
+    {
+        switch ( event.code )
+        {
+            case 'KeyT':
+            case 'KeyG': 
+                this.robotControl.Axis1 = 0; 
+                break;
+
+            case 'KeyY':
+            case 'KeyH': 
+                this.robotControl.Axis2 = 0; 
+                break;
+
+            case 'KeyU':
+            case 'KeyJ': 
+                this.robotControl.Axis3 = 0; 
+                break;
+
+            case 'KeyI':
+            case 'KeyK': 
+                this.robotControl.Axis4 = 0; 
+                break;
+
+            case 'KeyO':
+            case 'KeyL': 
+                this.robotControl.Axis5 = 0; 
+                break;
+
+            case 'KeyP':
+            case 'Semicolon': 
+                this.robotControl.Axis6 = 0; 
+                break;
+
+        }
+    }
+    // #endregion
+
+    // #region ApplyRobotControl
+    /**
+     * Applies the modify values to the robot rig
+     */
+    private ApplyRobotControl(): void
+    {
+        const multiplier = 0.01;
+
+        if (this.robotBones != null)
+        {
+            this.robotBones.Base.applyQuaternion(
+                new THREE.Quaternion(
+                    0,
+                    0,
+                    this.robotControl.Axis1 * multiplier
+                )
+            );
+
+            this.robotBones.Arm1.applyQuaternion(
+                new THREE.Quaternion(
+                    this.robotControl.Axis2 * multiplier,
+                    0,
+                    0
+                )
+            );
+
+            this.robotBones.Arm2.applyQuaternion(
+                new THREE.Quaternion(
+                    0,
+                    0,
+                    this.robotControl.Axis3 * multiplier
+                )
+            );
+
+            this.robotBones.Arm3.applyQuaternion(
+                new THREE.Quaternion(
+                    0,
+                    this.robotControl.Axis4 * multiplier,
+                    0
+                )
+            );
+
+            this.robotBones.Arm4.applyQuaternion(
+                new THREE.Quaternion(
+                    0,
+                    0,
+                    this.robotControl.Axis5 * multiplier,
+                )
+            );
+
+            this.robotBones.Arm5.applyQuaternion(
+                new THREE.Quaternion(
+                    0,
+                    this.robotControl.Axis6 * multiplier,
+                    0
+                )
+            );
+        }
     }
     // #endregion
 }
